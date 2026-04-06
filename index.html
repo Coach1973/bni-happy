@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>📊 大台南南區領導團隊推薦系統 - 後台分析</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
+    <style>
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background: #f0f2f5;
+            margin: 0;
+            padding: 20px;
+            color: #333;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        
+        /* 標題設計區 */
+        .header-container {
+            text-align: center;
+            background: white;
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+            margin-bottom: 30px;
+            border-bottom: 5px solid #3498db;
+        }
+        
+        h1 {
+            color: #2c3e50;
+            margin: 0;
+            line-height: 1.4;
+        }
+
+        .main-title {
+            display: block;
+            font-size: 2rem;
+            margin-bottom: 10px;
+            color: #2c3e50;
+        }
+
+        .sub-title {
+            display: block;
+            font-size: 1.1rem;
+            color: #555;
+            font-weight: normal;
+            background: #ecf0f1;
+            padding: 8px 15px;
+            border-radius: 8px;
+            display: inline-block;
+            margin-bottom: 10px;
+        }
+
+        .system-tag {
+            display: block;
+            font-size: 0.9rem;
+            color: #3498db;
+            font-weight: bold;
+            margin-top: 5px;
+            letter-spacing: 1px;
+        }
+        
+        /* 上傳區塊 */
+        .upload-area {
+            background: white;
+            border: 3px dashed #bdc3c7;
+            border-radius: 20px;
+            padding: 40px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-bottom: 30px;
+        }
+        .upload-area:hover, .upload-area.dragover {
+            border-color: #3498db;
+            background: #ecf0f1;
+        }
+        .upload-icon { font-size: 50px; margin-bottom: 10px; }
+        .upload-text { font-size: 1.2em; color: #7f8c8d; }
+
+        /* 結果區塊 */
+        .result-section {
+            display: none; /* 一開始隱藏 */
+            animation: fadeIn 0.5s;
+        }
+        
+        .card {
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            margin-bottom: 20px;
+        }
+
+        /* Top 3 冠軍講台 */
+        .podium {
+            display: flex;
+            justify-content: center;
+            align-items: flex-end;
+            height: 250px;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #eee;
+        }
+        .podium-item {
+            text-align: center;
+            width: 100px;
+            margin: 0 10px;
+            position: relative;
+        }
+        .podium-bar {
+            width: 100%;
+            border-radius: 10px 10px 0 0;
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 1.2em;
+            padding-bottom: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+            position: relative;
+        }
+        .rank-1 { height: 160px; background: linear-gradient(to bottom, #f1c40f, #f39c12); order: 2; z-index: 2; }
+        .rank-2 { height: 120px; background: linear-gradient(to bottom, #bdc3c7, #95a5a6); order: 1; }
+        .rank-3 { height: 90px; background: linear-gradient(to bottom, #e67e22, #d35400); order: 3; }
+        
+        .podium-name { margin-top: 10px; font-weight: bold; font-size: 1.1em; }
+        .crown { font-size: 30px; position: absolute; top: -40px; left: 50%; transform: translateX(-50%); }
+
+        /* 4~10名列表樣式 */
+        .ranking-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        .ranking-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 20px;
+            margin-bottom: 10px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            transition: transform 0.2s;
+        }
+        .ranking-item:hover {
+            transform: translateX(5px);
+            background: #fff;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+        .rank-badge {
+            background: #95a5a6;
+            color: white;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            margin-right: 15px;
+        }
+        .rank-name {
+            font-size: 1.1em;
+            font-weight: bold;
+            flex-grow: 1;
+            text-align: left;
+        }
+        .rank-score {
+            font-weight: bold;
+            color: #3498db;
+        }
+
+        /* 圖表區 */
+        .chart-container {
+            position: relative;
+            height: 400px;
+            margin-bottom: 40px;
+        }
+
+        /* 留言板 */
+        .message-list {
+            list-style: none;
+            padding: 0;
+        }
+        .message-item {
+            background: #fff3cd;
+            border-left: 5px solid #ffc107;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 5px;
+            font-size: 1.05em;
+        }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header-container">
+        <h1>
+            <span class="main-title">🏆 大台南南區</span>
+            <span class="sub-title">領導團隊推薦系統</span>
+            <span class="system-tag">後台數據分析中心</span>
+        </h1>
+    </div>
+    
+    <!-- 1. 拖拉檔案區 -->
+    <div class="upload-area" id="drop-zone">
+        <div class="upload-icon">📂</div>
+        <div class="upload-text">請將 CSV 檔案 <b>拖到這裡</b><br>或點擊選擇檔案</div>
+        <input type="file" id="file-input" accept=".csv" style="display: none;">
+    </div>
+
+    <!-- 2. 分析結果區 -->
+    <div class="result-section" id="result-view">
+        
+        <!-- Top 10 區 -->
+        <div class="card">
+            <h2 style="text-align:center;">🏆 推薦排行榜 Top 10</h2>
+            
+            <!-- Top 3 講台 -->
+            <div class="podium" id="podium-area"></div>
+            
+            <!-- Top 4-10 列表 -->
+            <ul class="ranking-list" id="ranking-list-area"></ul>
+        </div>
+
+        <!-- 圓餅圖與長條圖 -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+            <div class="card">
+                <h3>📊 總票數分佈 (長條圖)</h3>
+                <div class="chart-container">
+                    <canvas id="barChart"></canvas>
+                </div>
+            </div>
+            <div class="card">
+                <h3>🍰 得票佔比 (圓餅圖)</h3>
+                <div class="chart-container">
+                    <canvas id="pieChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- 留言區 -->
+        <div class="card">
+            <h3>💬 大家的期望與留言</h3>
+            <ul class="message-list" id="msg-list"></ul>
+        </div>
+    </div>
+</div>
+
+<script>
+    const dropZone = document.getElementById('drop-zone');
+    const fileInput = document.getElementById('file-input');
+    const resultView = document.getElementById('result-view');
+
+    dropZone.addEventListener('click', () => fileInput.click());
+    dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+    dropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropZone.classList.remove('dragover');
+        handleFiles(e.dataTransfer.files);
+    });
+    fileInput.addEventListener('change', (e) => handleFiles(e.target.files));
+
+    function handleFiles(files) {
+        if (files.length === 0) return;
+        const file = files[0];
+        
+        Papa.parse(file, {
+            header: true,
+            skipEmptyLines: true,
+            complete: function(results) {
+                // 檢查是否有解析錯誤
+                if (results.errors.length > 0) {
+                    console.warn("解析過程有警告:", results.errors);
+                }
+                processData(results.data);
+            }
+        });
+    }
+
+    function processData(data) {
+        let voteCounts = {};
+        let messages = [];
+
+        if (!data || data.length === 0) {
+            alert("讀取失敗：CSV 檔案是空的！");
+            return;
+        }
+
+        // --- 自動偵測欄位名稱 (除錯邏輯) ---
+        const headers = Object.keys(data[0]);
+        console.log("偵測到的欄位:", headers);
+
+        function findColumn(keyword) {
+            return headers.find(h => h.toLowerCase().includes(keyword.toLowerCase()));
+        }
+
+        const keyChoice1 = findColumn('choice1') || findColumn('candidate1');
+        const keyChoice2 = findColumn('choice2') || findColumn('candidate2');
+        const keyChoice3 = findColumn('choice3') || findColumn('candidate3');
+        const keyMessage = findColumn('message');
+
+        data.forEach(row => {
+            [keyChoice1, keyChoice2, keyChoice3].forEach(key => {
+                if(key && row[key]) {
+                    let name = row[key].trim();
+                    if(name) {
+                        voteCounts[name] = (voteCounts[name] || 0) + 1;
+                    }
+                }
+            });
+
+            if(keyMessage && row[keyMessage] && row[keyMessage].trim() !== "") {
+                messages.push(row[keyMessage].trim());
+            }
+        });
+
+        let sortedVotes = Object.keys(voteCounts).map(name => {
+            return { name: name, count: voteCounts[name] };
+        }).sort((a, b) => b.count - a.count);
+
+        if(sortedVotes.length === 0) {
+            let errorMsg = "⚠️ 讀取失敗，找不到投票資料！\n\n";
+            errorMsg += "程式正在尋找 choice1, choice2, choice3 欄位，但只看到以下欄位：\n";
+            errorMsg += headers.join(", ") + "\n\n";
+            errorMsg += "可能原因：\n1. 沒人投票？\n2. CSV 格式跑掉了\n3. 欄位名稱被 Excel 改掉了";
+            alert(errorMsg);
+            return;
+        }
+
+        dropZone.style.display = 'none';
+        resultView.style.display = 'block';
+
+        renderPodium(sortedVotes);
+        renderRankingList(sortedVotes); 
+        renderCharts(sortedVotes);
+        renderMessages(messages);
+    }
+
+    function renderPodium(votes) {
+        const podiumArea = document.getElementById('podium-area');
+        podiumArea.innerHTML = '';
+        
+        // 只取前 3 名做講台
+        const top3 = votes.slice(0, 3);
+        const podiumOrder = [1, 0, 2]; 
+
+        podiumOrder.forEach(idx => {
+            if (top3[idx]) {
+                let p = top3[idx];
+                let rank = idx + 1;
+                let heightClass = `rank-${rank}`;
+                let crownHtml = rank === 1 ? '<div class="crown">👑</div>' : '';
+                
+                let html = `
+                    <div class="podium-item ${heightClass}">
+                        ${crownHtml}
+                        <div class="podium-bar ${heightClass}">
+                            ${p.count}票
+                        </div>
+                        <div class="podium-name">${p.name}</div>
+                    </div>
+                `;
+                podiumArea.innerHTML += html;
+            }
+        });
+    }
+
+    // 顯示第 4-10 名的列表
+    function renderRankingList(votes) {
+        const listArea = document.getElementById('ranking-list-area');
+        listArea.innerHTML = '';
+
+        // 取第 4 到 第 10 名
+        const others = votes.slice(3, 10);
+        
+        if(others.length === 0) {
+            // 如果候選人不足 4 人，這區就不顯示
+            return;
+        }
+
+        others.forEach((p, index) => {
+            let rank = index + 4; // 因為從第4名開始
+            let html = `
+                <li class="ranking-item">
+                    <div class="rank-badge">${rank}</div>
+                    <div class="rank-name">${p.name}</div>
+                    <div class="rank-score">${p.count} 票</div>
+                </li>
+            `;
+            listArea.innerHTML += html;
+        });
+    }
+
+    function renderCharts(votes) {
+        const labels = votes.map(v => v.name);
+        const data = votes.map(v => v.count);
+
+        new Chart(document.getElementById('barChart'), {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: '得票數',
+                    data: data,
+                    backgroundColor: '#3498db',
+                    borderRadius: 5
+                }]
+            },
+            options: {
+                indexAxis: 'y', 
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } }
+            }
+        });
+
+        new Chart(document.getElementById('pieChart'), {
+            type: 'doughnut', 
+            data: {
+                labels: labels,
+                datasets: [{
+                    data: data,
+                    backgroundColor: [
+                        '#e74c3c', '#3498db', '#f1c40f', '#2ecc71', '#9b59b6', 
+                        '#e67e22', '#1abc9c', '#34495e', '#7f8c8d'
+                    ],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'right' }
+                }
+            }
+        });
+    }
+
+    function renderMessages(msgs) {
+        const list = document.getElementById('msg-list');
+        if(msgs.length === 0) {
+            list.innerHTML = '<li style="color:#999; text-align:center;">目前沒有留言</li>';
+            return;
+        }
+        list.innerHTML = msgs.map(m => `<li class="message-item">${m}</li>`).join('');
+    }
+</script>
+
+</body>
+</html>
